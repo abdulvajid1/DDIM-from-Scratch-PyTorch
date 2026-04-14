@@ -11,5 +11,6 @@ class Arguments():
     learning_rate: float = 1e-3
     l2_norm: float = 0.01
     eval_step: int =  10
+    img_size: int = 64
     
     

@@ -1,13 +1,16 @@
 import torch
+import math
+from args import Arguments
 
 class DDIM:
-    def __init__(self, n_timesteps: int, st_beta: float, end_beta: float, device='cpu') -> None:
+    def __init__(self, n_timesteps: int, st_beta: float, end_beta: float, args: Arguments, device='cpu') -> None:
+        self.img_size = args.img_size
         self.device = device
         self.n_timesteps = n_timesteps
         self.betas = self.get_sheduler(st_beta, end_beta)
         self.alphas = 1 - self.betas
         
-        self.cum_alphas = torch.cumprod(self.alphas)
+        self.cum_alphas = torch.cumprod(self.alphas, dim=-1)
         self.one_minus_cum_alphas = 1 - self.cum_alphas
         
         self.sq_cum_alphas = torch.sqrt(self.cum_alphas)
@@ -37,5 +40,37 @@ class DDIM:
         elif type=='cosine':
             pass
         
-    def sample_image(self, n, n_timesteps):
-        pass
+    def sample_image(self, model, n, n_steps: int = 50, eta: float = 0.0):
+        step_size = self.n_timesteps // n_steps
+        # Reverse: go from T → 0
+        timesteps = torch.arange(0, self.n_timesteps, step_size).flip(0)  # [980, 960, ..., 0]
+
+        xt = torch.randn(n, 3, self.img_size, self.img_size).to(self.device)
+
+        for step, i in enumerate(timesteps):
+            i = i.item()
+
+            # Previous timestep in the schedule (next in reversed order)
+            i_prev = timesteps[step + 1].item() if step + 1 < len(timesteps) else 0
+
+            # Predict noise and reconstruct x0
+            pred_noise = model(xt, torch.tensor([i] * n).to(self.device))
+            pred_x0 = (xt - self.sq_one_minus_cum_alphas[i] * pred_noise) / self.sq_cum_alphas[i]
+            pred_x0 = pred_x0.clamp(-1, 1)  # optional but recommended
+
+            if i == 0:
+                return pred_x0
+
+            # Correct DDIM sigma
+            sigma = eta * (
+                (self.one_minus_cum_alphas[i_prev] / self.one_minus_cum_alphas[i]) *
+                (1 - self.cum_alphas[i] / self.cum_alphas[i_prev])
+            ) ** 0.5
+
+            # DDIM update step
+            direction = (self.one_minus_cum_alphas[i_prev] - sigma ** 2) ** 0.5 * pred_noise
+            new_noise = torch.randn_like(xt).to(self.device)
+            xt = self.sq_cum_alphas[i_prev] * pred_x0 + direction + sigma * new_noise
+
+        return xt
+            

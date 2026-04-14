@@ -35,7 +35,7 @@ def eval(ddim, model, loader, device):
     return avg_loss
     
 
-def train(ddim: DDIM, model: UNet, train_loader: DataLoader, val_loader: DataLoader, optimizer: AdamW, eval_step: int, device:str):
+def train(ddim: DDIM, model: UNet, train_loader: DataLoader, val_loader: DataLoader, optimizer: AdamW, eval_step: int, device:str, epoch):
     model.train()
     for step, (img, _) in enumerate(train_loader):
         
@@ -54,8 +54,10 @@ def train(ddim: DDIM, model: UNet, train_loader: DataLoader, val_loader: DataLoa
         if (step+1) % eval_step:
             model.eval()
             avg_val_loss = eval(ddim, model, val_loader, device)
-            print(avg_val_loss)
+            print(f"Epoch: {epoch} | Step: {step+1} | Loss: {loss.item()} | Eval_Loss: {avg_val_loss}")
+            ddim.sample_image(model, n=4, n_timesteps=50)
             model.train()
+            
        
             
         
@@ -72,8 +74,7 @@ def main():
     
     train_loader = get_dataloader(args)
     val_loader = get_dataloader(args=args, train=False)
-    eval_step = args.eval_step
     
     for i in range(args.n_epoch):
-        epoch_loss = train(ddim, model, train_loader, val_loader, optimizer, eval_step, device)
+        train(ddim, model, train_loader, val_loader, optimizer, eval_step=args.eval_step, device=device, epoch=args.n_epoch)
     
