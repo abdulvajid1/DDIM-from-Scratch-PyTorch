@@ -3,11 +3,11 @@ import math
 from args import Arguments
 
 class DDIM:
-    def __init__(self, n_timesteps: int, st_beta: float, end_beta: float, args: Arguments, device='cpu') -> None:
+    def __init__(self, args: Arguments, device='cpu') -> None:
         self.img_size = args.img_size
         self.device = device
-        self.n_timesteps = n_timesteps
-        self.betas = self.get_sheduler(st_beta, end_beta)
+        self.n_timesteps = args.n_timesteps
+        self.betas = self.get_sheduler(args.st_beta, args.end_beta)
         self.alphas = 1 - self.betas
         
         self.cum_alphas = torch.cumprod(self.alphas, dim=-1)
@@ -39,7 +39,8 @@ class DDIM:
             return torch.linspace(st_beta, end_beta, n_timesteps)
         elif type=='cosine':
             pass
-        
+    
+    @torch.inference_mode()    
     def sample_image(self, model, n, n_steps: int = 50, eta: float = 0.0):
         step_size = self.n_timesteps // n_steps
         # Reverse: go from T → 0

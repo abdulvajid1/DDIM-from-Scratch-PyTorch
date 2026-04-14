@@ -25,7 +25,7 @@ class DoubleConv(nn.Module):
         
         
 class Down(nn.Module):
-    def __init__(self, in_channels, out_channels, emb_dim=256):
+    def __init__(self, in_channels, out_channels, time_dim=64):
         super().__init__()
         self.max_pool = nn.Sequential(
             nn.MaxPool2d(2),
@@ -35,7 +35,7 @@ class Down(nn.Module):
             )
         
         self.embed_layer = nn.Sequential( # a projection Layer to feature maps dim , [b, embed_dim] -> [b, channels_dim] so each channel will get scalar pos info
-            nn.Linear(emb_dim, out_channels),
+            nn.Linear(time_dim, out_channels),
             nn.SiLU(),
         )
         
@@ -48,7 +48,7 @@ class Down(nn.Module):
     
     
 class Up(nn.Module):
-    def __init__(self, in_channel, out_channel, emb_dim=256) -> None:
+    def __init__(self, in_channel, out_channel, time_dim=256) -> None:
         super().__init__()
 
         self.up = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
@@ -59,7 +59,7 @@ class Up(nn.Module):
             DoubleConv(in_ch=out_channel, out_ch=out_channel)
         )
 
-        self.emb_layer = nn.Linear(in_features=emb_dim, out_features=out_channel)
+        self.emb_layer = nn.Linear(in_features=time_dim, out_features=out_channel)
         
         self.norm = nn.GroupNorm(2, out_channel)
 
@@ -104,33 +104,33 @@ class SelfAttention(nn.Module):
         return x.transpose(1, 2).contiguous().view(n_batch, channels, width, height) 
 
 class UNet(nn.Module):
-    def __init__(self, c_in=3, time_dim=256, device='cuda') -> None:
+    def __init__(self, c_in=3, time_dim: int = 64, device='cuda') -> None:
         super().__init__()
         self.device = device
         self.time_dim = time_dim
 
         self.inc = DoubleConv(c_in, 64)
 
-        self.down1 = Down(64, 128)
+        self.down1 = Down(64, 128, time_dim)
         self.sa1 = SelfAttention(128)
 
-        self.down2 = Down(128, 256)
+        self.down2 = Down(128, 256, time_dim)
         self.sa2 = SelfAttention(256)
 
-        self.down3 = Down(256, 256)
+        self.down3 = Down(256, 256, time_dim)
         self.sa3 = SelfAttention(256)
 
         self.bot1 = DoubleConv(256, 512)
         self.bot2 = DoubleConv(512, 512)
         self.bot3 = DoubleConv(512, 256)
 
-        self.up1 = Up(512, 128) # 512 cuz we have 256 skip connection
+        self.up1 = Up(512, 128, time_dim) # 512 cuz we have 256 skip connection
         self.sa4 = SelfAttention(128)
 
-        self.up2 = Up(256, 64) # 126 skip
+        self.up2 = Up(256, 64, time_dim) # 126 skip
         self.sa5 = SelfAttention(64)
 
-        self.up3 = Up(128, 64)
+        self.up3 = Up(128, 64, time_dim)
         self.sa6 = SelfAttention(64)
 
         self.outc = nn.Conv2d(64, c_in, kernel_size=1) # 1x1
@@ -160,7 +160,6 @@ class UNet(nn.Module):
 
         x4 = self.bot1(x4) # 8
         x4 = self.bot2(x4) # 8
-
         x4 = self.bot3(x4) 
 
         x = self.up1(x4, x3, t_emb) # 8 -> 16
@@ -174,6 +173,8 @@ class UNet(nn.Module):
 
 
         output = self.outc(x) # 1x1
+        
+        print(output.size(), "final out size")
 
         return output
     

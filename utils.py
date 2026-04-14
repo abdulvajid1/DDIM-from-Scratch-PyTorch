@@ -14,14 +14,18 @@ def plot_images(images):
 
 
 def save_images(images, path, **kwargs):
+    print('Saving the files')
+    images = (images.clamp(-1, 1) + 1)/2
+    images = (images*255).type(torch.uint8)
     grid = torchvision.utils.make_grid(images, **kwargs)
     ndarr = grid.permute(1, 2, 0).cpu().numpy()
+    print(ndarr.shape, 'before ving ')
     im = Image.fromarray(ndarr)
     im.save(path)
 
 def get_dataloader(args, train=True):
     transform = torchvision.transforms.Compose([
-        torchvision.transforms.Resize(args.img_size),
+        torchvision.transforms.Resize((args.img_size, args.img_size)),
         # torchvision.transforms.RandomResizedCrop(args.img_size, scale=(0.8, 1.0)),
         # torchvision.transforms.RandomHorizontalFlip(),
         torchvision.transforms.ToTensor(),
