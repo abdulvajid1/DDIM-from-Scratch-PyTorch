@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import math
 
 
 class DoubleConv(nn.Module):
@@ -35,16 +36,17 @@ class Down(nn.Module):
             )
         
         self.embed_layer = nn.Sequential( # a projection Layer to feature maps dim , [b, embed_dim] -> [b, channels_dim] so each channel will get scalar pos info
-            nn.Linear(time_dim, out_channels),
+            nn.Linear(time_dim, in_channels),
             nn.SiLU(),
         )
         
-        self.norm = nn.GroupNorm(2, out_channels)
+        self.norm = nn.GroupNorm(2, in_channels)
         
     def forward(self, x, t):
-        x = self.max_pool(x)
         emb = self.embed_layer(t)[:, :, None, None] #.repeat(1, 1, x.shape[-2], x.shape[-1])
-        return self.norm(x + emb) # each channel will get seperate pos number that get added
+        x = self.norm(x + emb * 0.7)
+        x = self.max_pool(x)
+        return x
     
     
 class Up(nn.Module):
@@ -59,16 +61,17 @@ class Up(nn.Module):
             DoubleConv(in_ch=out_channel, out_ch=out_channel)
         )
 
-        self.emb_layer = nn.Linear(in_features=time_dim, out_features=out_channel)
+        self.emb_layer = nn.Linear(in_features=time_dim, out_features=in_channel)
         
-        self.norm = nn.GroupNorm(2, out_channel)
+        self.norm = nn.GroupNorm(2, in_channel)
 
     def forward(self, x, x_skip, t_emb):
         x = self.up(x)
         x = torch.concat([x_skip, x], dim=1)
-        x = self.conv(x)
         t_emb = self.emb_layer(t_emb)[:, :, None, None]
-        return self.norm(x + t_emb)
+        x = self.norm(x + t_emb * 0.7)
+        x = self.conv(x)
+        return x
     
 class SelfAttention(nn.Module):
     def __init__(self, in_channels, mlp_ratio=4):
@@ -136,16 +139,25 @@ class UNet(nn.Module):
         self.outc = nn.Conv2d(64, c_in, kernel_size=1) # 1x1
 
 
-    def pos_encoding(self, t, channel):
-        inv_freq = 1 / (10000 ** (torch.arange(0, channel, 2, device=self.device).float() / channel))
-        pos_enc_a = torch.sin(t.repeat(1, channel // 2) * inv_freq)
-        pos_enc_b = torch.cos(t.repeat(1, channel // 2) * inv_freq)
-        pos_enc = torch.cat([pos_enc_a, pos_enc_b], dim=-1)
-        return pos_enc.to(self.device)
+    def pos_encoding(self, t, dim):
+        device = t.device
+        half_dim = dim // 2
+
+        emb = torch.exp(
+            torch.arange(half_dim, device=device) * (-math.log(10000) / (half_dim - 1))
+        )
+
+        emb = t * emb
+        emb = torch.cat([torch.sin(emb), torch.cos(emb)], dim=-1)
+        return emb
+    
+    
     
     def forward(self, x, t):
+        t = t.float() / 1000.0 # or self.n_timesteps
         t = t.float().unsqueeze(-1)
         t_emb = self.pos_encoding(t, self.time_dim)
+
 
         x1 = self.inc(x) # (b, 3, 64, 64) -> (b, 64, 64, 64)
 
@@ -174,7 +186,6 @@ class UNet(nn.Module):
 
         output = self.outc(x) # 1x1
         
-        print(output.size(), "final out size")
 
         return output
     
