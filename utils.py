@@ -4,6 +4,11 @@ import torchvision
 from PIL import Image
 import matplotlib.pyplot as plt
 from torch.utils.data import DataLoader
+from torch.utils.data import Dataset
+from PIL import Image
+from args import Arguments
+
+args = Arguments()
 
 def plot_images(images):
     plt.figure(figsize=(10, 10))
@@ -22,15 +27,38 @@ def save_images(images, path, **kwargs):
     im = Image.fromarray(ndarr)
     im.save(path)
 
-def get_dataloader(args, train=True):
-    transform = torchvision.transforms.Compose([
+transform = torchvision.transforms.Compose([
         torchvision.transforms.Resize((args.img_size, args.img_size)),
         # torchvision.transforms.RandomResizedCrop(args.img_size, scale=(0.8, 1.0)),
         # torchvision.transforms.RandomHorizontalFlip(),
         torchvision.transforms.ToTensor(),
         torchvision.transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
     ])
-    if train:
+
+class DummyDataset(Dataset):
+    def __init__(self, image_path):
+        super().__init__()
+        self.transform = transform
+        
+        img = Image.open(image_path).convert("RGB")
+        
+     
+        img = self.transform(img)
+        
+        self.img = img
+
+    def __len__(self):
+        return 1000  # fake length
+
+    def __getitem__(self, index):
+        return self.img, 0   # return dummy label
+
+
+
+def get_dataloader(args, train=True, single_batch=False):
+    if single_batch:
+        dataloader = DataLoader(DummyDataset(image_path='data/images/sample_image.jpg'), batch_size=args.batch_size, shuffle=True, pin_memory=True, num_workers=3)
+    elif train:
         dataset = torchvision.datasets.ImageFolder(args.dataset_path, transform=transform)
         dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True, pin_memory=True, num_workers=6)
     else:
