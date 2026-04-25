@@ -7,6 +7,13 @@ from torch.utils.data import DataLoader
 from torch.utils.data import Dataset
 from PIL import Image
 from args import Arguments
+from pathlib import Path
+
+import logging
+
+logging.basicConfig(format="%(asctime)s - %(levelname)s: %(message)s",
+                    level=logging.INFO, 
+                    datefmt="%I: %M: %S")
 
 args = Arguments()
 
@@ -52,6 +59,43 @@ class DummyDataset(Dataset):
 
     def __getitem__(self, index):
         return self.img, 0   # return dummy label
+    
+
+import tqdm
+import hashlib
+import pickle
+
+class IMGDataset(Dataset):
+    def __init__(self, image_path, transform):
+        super().__init__()
+        
+        
+        self.transform = transform
+
+        # check if cache exist or create new cache
+        hash_id = hashlib.sha256(image_path.encode()).hexdigest()
+        cache_path = Path('tmp') / f"{hash_id}.pkl"
+
+        if cache_path.exists():
+            logging.info('Loading image list from cache')
+            with open(cache_path, 'rb') as f:
+                self.image_paths =  pickle.load(f)
+        else:
+            logging.info('Image list cache did not found, creating Cache in tmp dir')
+            dataset_path = Path(image_path)
+            self.image_paths = [str(p) for p in tqdm.tqdm(dataset_path.rglob('*.jpg'))]
+
+            cache_path.parent.mkdir(exist_ok=True, parents=True)
+            with open(cache_path, 'wb') as f:
+                pickle.dump(self.image_paths, f)
+
+    def __len__(self):
+        return len(self.image_paths)  # fake length
+
+    def __getitem__(self, idx):
+        img = Image.open(self.image_paths[idx]).convert("RGB")
+        img = self.transform(img)
+        return img, 0   # return dummy label
 
 
 
@@ -59,10 +103,10 @@ def get_dataloader(args, train=True, single_batch=False):
     if single_batch:
         dataloader = DataLoader(DummyDataset(image_path='data/images/sample_image.jpg'), batch_size=args.batch_size, shuffle=True, pin_memory=True, num_workers=3)
     elif train:
-        dataset = torchvision.datasets.ImageFolder(args.dataset_path, transform=transform)
+        dataset = IMGDataset(args.dataset_path, transform=transform)
         dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True, pin_memory=True, num_workers=6)
     else:
-        dataset = torchvision.datasets.ImageFolder(args.eval_datasetpath, transform=transform)
+        dataset =  IMGDataset(args.dataset_path, transform=transform)
         dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=False, pin_memory=True, num_workers=1)
     
     return dataloader
