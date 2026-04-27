@@ -8,7 +8,7 @@ from args import Arguments
 from ddim import DDIM
 from unet import UNet
 from utils import save_images
-from utils import setup_logging
+from utils import setup_logging, save_model, load_model
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 import logging
 import tqdm
@@ -50,7 +50,7 @@ def eval(ddim: DDIM, model:UNet, loader: DataLoader, device: str, global_step: i
         total_loss += loss.item()
         i += 1
 
-        if i==31:
+        if i==10:
             break
     
     avg_loss = total_loss/i
@@ -92,7 +92,10 @@ def train(ddim: DDIM, model: UNet, train_loader: DataLoader, val_loader: DataLoa
             avg_val_loss = eval(ddim, model, val_loader, device, global_step=global_step, args=args)
             sheduler.step(avg_val_loss)
             logging.info(f"Step: {global_step+1} | Loss: {raw_loss.item()} | Eval_Loss: {avg_val_loss}")
-            
+
+        if (global_step+1) % args.save_step == 0:
+            save_model(model, optimizer, global_step=(global_step+1), run_name='testing')
+                        
         
 
         
@@ -103,11 +106,16 @@ def main():
     # setup_logging(run_name=f'{args.n_batchsize}-{args.st_beta}-{args.learning_rate}-{args.time_dim}-{args.l2_norm}-{args.img_size}')    
     
     ddim = DDIM(device=device, args=args)
-    model = UNet(c_in=3, time_dim=args.time_dim, device=device).to(device)
+    model = UNet(c_in=3, time_dim=args.time_dim, device=device, multiplier=args.channel_multiplier).to(device)
     model = torch.compile(model)
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.learning_rate, weight_decay=args.l2_norm)
     scheduler = ReduceLROnPlateau(optimizer, "min", patience=100)
+
+    if args.load_model:
+        load_model(model, optimizer, args)
+
     logging.info('Initialized Model & Optimizer')
+
 
     train_loader = get_dataloader(args, train=True, single_batch=False)
     val_loader = train_loader

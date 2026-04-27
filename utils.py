@@ -117,12 +117,18 @@ def save_model(model, optimizer, global_step, run_name):
         "optimizer": optimizer.state_dict(),
         "global_step": global_step
     }
+    path = Path('model')
 
-    torch.save(obj, os.path.join("models", run_name, f"model_{global_step}.ckpt"))
+    if not path.exists():
+        path.mkdir(exist_ok=True)
+
+    torch.save(obj, path / f"model_{global_step}.ckpt")
     
 
-def load_model(model, optimizer, global_step, args):
-    checkpoint = torch.load(os.path.join('models', args.run_name, f"model_{global_step}.ckpt"), map_location=args.device)
+def load_model(model, optimizer, args):
+    model_paths = list(Path('model').glob('*.ckpt'))
+    latest_model_path = max(model_paths, key=lambda p: p.stat().st_mtime)
+    checkpoint = torch.load(latest_model_path.as_posix(), map_location=args.device)
 
     model.load_state_dict(checkpoint["model"])
 
