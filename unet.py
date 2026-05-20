@@ -10,13 +10,13 @@ class DoubleConv(nn.Module):
         self.residual = residual
         self.double_conv = nn.Sequential(
             nn.Conv2d(in_channels=in_ch, out_channels=out_ch, kernel_size=3, padding=1, bias=False),
-            nn.GroupNorm(2, out_ch),
+            nn.GroupNorm(32, out_ch),
             nn.GELU(),
             nn.Conv2d(in_channels=out_ch, out_channels=out_ch, kernel_size=3, padding=1, bias=False),
-            nn.GroupNorm(2, out_ch)
+            nn.GroupNorm(32, out_ch)
         )
         
-        self.norm = nn.GroupNorm(2, out_ch)
+        self.norm = nn.GroupNorm(32, out_ch)
 
     def forward(self, x):
         if self.residual:
@@ -40,7 +40,7 @@ class Down(nn.Module):
             nn.SiLU(),
         )
         
-        self.norm = nn.GroupNorm(2, in_channels)
+        self.norm = nn.GroupNorm(32, in_channels)
         
     def forward(self, x, t):
         emb = self.embed_layer(t)[:, :, None, None] #.repeat(1, 1, x.shape[-2], x.shape[-1])
@@ -53,7 +53,7 @@ class Up(nn.Module):
     def __init__(self, in_channel, out_channel, time_dim=256) -> None:
         super().__init__()
 
-        self.up = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
+        self.up = nn.Upsample(scale_factor=2, mode='nearest')
 
         self.conv = nn.Sequential(
             DoubleConv(in_ch=in_channel, out_ch=in_channel),
@@ -63,7 +63,7 @@ class Up(nn.Module):
 
         self.emb_layer = nn.Linear(in_features=time_dim, out_features=in_channel)
         
-        self.norm = nn.GroupNorm(2, in_channel)
+        self.norm = nn.GroupNorm(32, in_channel)
 
     def forward(self, x, x_skip, t_emb):
         x = self.up(x)

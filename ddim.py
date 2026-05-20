@@ -42,7 +42,8 @@ class DDIM:
     @torch.inference_mode()    
     def sample_image(self, model, n, n_steps: int = 1000, eta: float = 0.0):
 
-        timesteps = torch.linspace(0, self.n_timesteps - 1, n_steps).long().flip(0)  # [999, 949, ..., 0]
+        timesteps = torch.linspace(0, self.n_timesteps - 1, n_steps).long().flip(0)  # Descending timesteps from n_timesteps-1 to 0
+        # torch.manual_seed(0)
         xt = torch.randn(n, 3, self.img_size, self.img_size).to(self.device)
 
         for step, i in enumerate(timesteps):

@@ -15,3 +15,6 @@ data/
 tmp
 
 model
+
+mlruns
+*.db

@@ -101,7 +101,7 @@ class IMGDataset(Dataset):
 
 def get_dataloader(args, train=True, single_batch=False):
     if single_batch:
-        dataloader = DataLoader(DummyDataset(image_path='data/images/sample_image.jpg'), batch_size=args.batch_size, shuffle=True, pin_memory=True, num_workers=3)
+        dataloader = DataLoader(DummyDataset(image_path='data/images/sample_image.jpg'), batch_size=args.batch_size, shuffle=True, pin_memory=True, num_workers=5)
     elif train:
         dataset = IMGDataset(args.dataset_path, transform=transform)
         dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True, pin_memory=True, num_workers=6)

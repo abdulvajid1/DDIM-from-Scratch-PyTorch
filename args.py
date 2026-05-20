@@ -4,23 +4,23 @@ import torch
 @dataclass
 class Arguments():
     n_timesteps: int = 1000
-    batch_size: int = 16
-    grad_accumulation_steps:int = 16
+    batch_size: int = 32
+    grad_accumulation_steps:int = 4
     n_epoch: int = 19000
     st_beta: float = 1e-4
     end_beta: float = 0.02
-    time_dim: int = 128
+    time_dim: int = 256
     learning_rate: float = 1e-4
-    l2_norm: float = 0.0
-    eval_step: int =  2500
-    img_size: int = 128
+    l2_norm: float = 0.1
+    eval_step: int =  1000
+    img_size: int = 64
     dataset_path: str ='data'
     eval_datasetpath: str ='data'
-    sampling_steps: int = 500
+    sampling_steps: int = 1000
     n_samples: int = 4
     channel_multiplier: int = 2
-    save_step: int = 5000
-    load_model: bool = False
+    save_step: int = 2000
+    load_model: bool = True
     device: str = 'cuda' if torch.cuda.is_available() else "cpu"
     
     
