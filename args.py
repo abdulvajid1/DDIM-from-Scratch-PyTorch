@@ -13,14 +13,14 @@ class Arguments():
     learning_rate: float = 1e-4
     l2_norm: float = 0.01
     eval_step: int =  100
-    img_size: int = 64
+    img_size: int = 128
     dataset_path: str ='data'
     eval_datasetpath: str ='data'
     sampling_steps: int = 1000
     n_samples: int = 4
     channel_multiplier: tuple = (1, 2, 2, 2)
     save_step: int = 1000
-    load_model: bool = False
+    load_model: bool = True
     device: str = 'cuda' if torch.cuda.is_available() else "cpu"
     ema_decay: float = 0.999
     ema_warmup: int = 1000

@@ -288,7 +288,7 @@ def main():
         "channel_mults"         : args.channel_multiplier
     }
 
-    with mlflow.start_run():
+    with mlflow.start_run("6fb3c9f56f534c059e7228b1414080b3"):
         mlflow.log_params(params=params)
 
         for epoch in range(args.n_epoch):
